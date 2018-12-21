@@ -5,6 +5,10 @@
 #include <time.h>
 #include <string.h> 
 
+/* send function takes the matrix of the block of image that is processed by a block, matrix row size N,
+* number of blocks in a row n, the rank of the slave processor and the world size and sends initial  
+* version of all the bordering pixels to the necessary processor 
+*/
 void send(int ** Z,int N,int n,int world_rank, int world_size){
 	//Send bottom row
 	if(world_rank + n < world_size)
@@ -33,6 +37,11 @@ void send(int ** Z,int N,int n,int world_rank, int world_size){
 	if(world_rank % n  != 0 && world_rank + n < world_size)
 		MPI_Send(&Z[N/n-1][N/n-1], 1, MPI_INT, world_rank +n +1, 7, MPI_COMM_WORLD);
 }
+/* receive function takes pointers to the arrays that hold the information about bordering pixels top,bottom,left,right,
+* the pointers to the variables that hold the information about bordering pixels topLeft,topRight,bottomLeft,bottomRight,
+* matrix row size N, number of blocks in a row n, the rank of the slave processor and the world size
+* and receives the initial version of all bordering pixels from the necessary processor
+*/
 void receive(int* top,int* bottom,int* left,int* right,int* topLeft,int* topRight,int* bottomLeft,int* bottomRight,int N,int n,int world_rank,int world_size){
 	//Receive top row
 	if(world_rank - n > 0)
@@ -61,6 +70,11 @@ void receive(int* top,int* bottom,int* left,int* right,int* topLeft,int* topRigh
 	if(world_rank % n  != 1 && world_rank - n > 0)
 		MPI_Recv(topLeft, 1, MPI_INT, world_rank-n-1, 7, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
+
+/* send2 function takes the matrix of the block of image that is processed by a block, matrix row size N,
+* number of blocks in a row n, the rank of the slave processor, the world size and indices of the most recently changed pixel 
+* and sends the version of the possibly changed bordering pixel to the necessary processor with the index of the possible change
+*/
 void send2(int ** Z,int N,int n,int world_rank, int world_size,int i,int j){
 	int toSend[2];
 	//Send bottom row
@@ -100,7 +114,14 @@ void send2(int ** Z,int N,int n,int world_rank, int world_size,int i,int j){
 	if(world_rank % n  != 0 && world_rank + n < world_size)
 		MPI_Send(&Z[N/n-1][N/n-1], 1, MPI_INT, world_rank +n +1, 7, MPI_COMM_WORLD);
 }
-void receive2(int* top,int* bottom,int* left,int* right,int* topLeft,int* topRight,int* bottomLeft,int* bottomRight,int N,int n,int world_rank,int world_size,int i,int j){
+
+/* receive2 function takes pointers to the arrays that hold the information about bordering pixels top,bottom,left,right,
+* the pointers to the variables that hold the information about bordering pixels topLeft,topRight,bottomLeft,bottomRight,
+* matrix row size N, number of blocks in a row n, the rank of the slave processor and the world size
+* and receives the version of the possibly changed bordering pixel from the necessary processor with the index of the possible change
+* then changes the pixel at the index to the most recent one
+*/
+void receive2(int* top,int* bottom,int* left,int* right,int* topLeft,int* topRight,int* bottomLeft,int* bottomRight,int N,int n,int world_rank,int world_size){
 	int toReceive[2];
 	//Receive top row
 	if(world_rank - n > 0){
@@ -143,34 +164,49 @@ int main(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	//N is the row and column size of image matrix
 	int N = 200;
 	double beta,pi,gamma;
+	//Read inputs from command line
 	beta = atof(argv[3]);
 	pi = atof(argv[4]);
-	int n = (int)sqrt(world_size-1); 
+	int n = (int)sqrt(world_size-1);
+	//Checking Input values
+	if(beta < 0 || beta > 1){
+		printf("Beta value should be between 0 and 1\n");
+		exit(1);
+	}
+	if(pi <= 0 ||pi >= 1){
+		printf("Pi value should be between 0 and 1\n");
+		exit(1);
+	}
+	// Gamma is initialized to use in the algorithm
 	gamma = 1.0/2*log((1-pi)/pi);
+	// Iteration count for the algorithm 
 	int iterationCount = 500000/(world_size -1);
 	if (world_rank == 0){
 		// Allocating memory for picture
+		// Picture contains blocks to be sent to slave processors
 		int *** picture = (int ***)malloc(sizeof(int **) * (world_size-1));
 		for(int i=0;i < (world_size-1);i++){
 			picture[i] = (int **)malloc(sizeof(int*) * N/n);
 			for(int j =0;j < N/n; j++)
 				picture[i][j] = (int *)malloc(sizeof(int) * N/n);
 		}
-		//TODO get Input
+		// Getting Input
 		FILE *fptr;
 		fptr = fopen(argv[1],"rb");
+		if (fptr == NULL){
+		    printf("Error opening file!\n");
+		    exit(1);
+		}
 		char * line = NULL;
 	    size_t len = 0;
 	   	ssize_t read;
 		for(int i=0;i<N;i++){
-			//TODO control
-			if((read = getline(&line, &len, fptr)) != -1)
-				;
-			
+			read = getline(&line, &len, fptr);
 			char* token = strtok(line, " ");
-			//TODO error check
+			// Putting each pixel of the image in the right block 
 			picture[i/(N/n)][i%(N/n)][0] =atoi(token);
 			for(int j=1;j < N ;j++) {
 		    	token = strtok(NULL, " ");
@@ -181,11 +217,11 @@ int main(int argc, char** argv) {
 		fclose(fptr);
 		
 
-		//Sending frames of size (N/p)x200 of pictures to processors 
+		//Sending blocks of size (N/n)x(N/n) of pictures to processors 
 		for(int i = 0; i < world_size-1; i++)
 			for(int j = 0; j < N/n; j++)
 				MPI_Send(picture[i][j], N/n, MPI_INT, i+1, 0, MPI_COMM_WORLD);
-		//Recieving frames of size (N/p)x200 of pictures to processors 
+		//Recieving blocks of size (N/n)x(N/n) of pictures to processors 
 		for(int i = 0; i < world_size-1; i++)
 			for(int j = 0; j < N/n; j++)
 				MPI_Recv(picture[i][j], N/n, MPI_INT, i+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -245,27 +281,35 @@ int main(int argc, char** argv) {
 			int i = rand()%(N/n);
 			int j = rand()%(N/n);
 			alpha = -2*gamma*Z[i][j]*X[i][j];
+			// Calculating sum of products of neighboring pixels with the random pixel
 			sum = 0;
+			// Checking if the pixel is at the top row 
 			if(i == 0){
+				// The block is on the top therefore no pixel at the top border
 				if(world_rank - n <= 0){
+					// The pixel is on the leftmost column 
 					if(j == 0){
 						sum += Z[i][j]*Z[i+1][j];
 						sum += Z[i][j]*Z[i+1][j+1];
 						sum += Z[i][j]*Z[i][j+1];
+						// If the block is not on the leftmost part of picture pixels from left border can be used 
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i];
 							sum += Z[i][j]*left[i+1];
 						}
 					}
+					// The pixel is on the rightmost column 
 					else if(j == N-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
 						sum += Z[i][j]*Z[i+1][j];
+						// If the block is not on the rightmost part of picture pixels from right border can be used
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i];
 							sum += Z[i][j]*right[i+1];
 						}
 					}
+					// The pixel is in the middle and has neighbors on its right and left
 					else{
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
@@ -274,13 +318,16 @@ int main(int argc, char** argv) {
 						sum += Z[i][j]*Z[i][j+1];
 					}
 				}
+				// The block is not on the top therefore pixel at the top border can be used 
 				else{
+					// The pixel is on the leftmost column 
 					if(j == 0){
 						sum += Z[i][j]*Z[i+1][j];
 						sum += Z[i][j]*Z[i+1][j+1];
 						sum += Z[i][j]*Z[i][j+1];
 						sum += Z[i][j]*top[j];
 						sum += Z[i][j]*top[j+1];
+						// If the block is not on the leftmost part of picture pixels from left border can be used
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i];
 							sum += Z[i][j]*left[i+1];
@@ -288,18 +335,21 @@ int main(int argc, char** argv) {
 						}
 
 					}
+					// The pixel is on the rightmost column 
 					else if(j == N-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
 						sum += Z[i][j]*Z[i+1][j];
 						sum += Z[i][j]*top[j];
 						sum += Z[i][j]*top[j-1];
+						// If the block is not on the rightmost part of picture pixels from right border can be used
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i];
 							sum += Z[i][j]*right[i+1];
 							sum += topRight;
 						}
 					}
+					// The pixel is in the middle and has neighbors on its right and left
 					else{
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
@@ -313,26 +363,33 @@ int main(int argc, char** argv) {
 				}
 			
 			}
+			// Checking if the pixel is at the bottom row 
 			else if(i == N/n -1){
+				// The block is at the bottom therefore no pixel at the bottom border
 				if(world_rank + n > world_size){
+					// The pixel is on the leftmost column 
 					if(j == 0){
 						sum += Z[i][j]*Z[i-1][j];
 						sum += Z[i][j]*Z[i-1][j+1];
 						sum += Z[i][j]*Z[i][j+1];
+						// If the block is not on the leftmost part of picture pixels from left border can be used
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i-1];
 							sum += Z[i][j]*left[i];
 						}
 					}
+					// The pixel is on the rightmost column 
 					else if(j == N-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
 						sum += Z[i][j]*Z[i-1][j];
+						// If the block is not on the rightmost part of picture pixels from right border can be used
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i-1];
 							sum += Z[i][j]*right[i];
 						}
 					}
+					// The pixel is in the middle and has neighbors on its right and left
 					else{
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
@@ -341,31 +398,37 @@ int main(int argc, char** argv) {
 						sum += Z[i][j]*Z[i][j+1];
 					}
 				}
+				// The block is not at the bottom therefore pixels at the bottom border can be used 
 				else{
+					// The pixel is on the leftmost column 
 					if(j == 0){
 						sum += Z[i][j]*Z[i-1][j];
 						sum += Z[i][j]*Z[i-1][j+1];
 						sum += Z[i][j]*Z[i][j+1];
 						sum += Z[i][j]*bottom[j];
 						sum += Z[i][j]*bottom[j+1];
+						// If the block is not on the leftmost part of picture pixels from left border can be used
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i-1];
 							sum += Z[i][j]*left[i];
 							sum += bottomLeft;
 						}
 					}
+					// The pixel is on the rightmost column 
 					else if(j == N-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
 						sum += Z[i][j]*Z[i-1][j];
 						sum += Z[i][j]*bottom[j-1];
 						sum += Z[i][j]*bottom[j];
+						// If the block is not on the rightmost part of picture pixels from right border can be used
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i-1];
 							sum += Z[i][j]*right[i];
 							sum += bottomRight;
 						}
 					}
+					// The pixel is in the middle and has neighbors on its right and left
 					else{
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
@@ -378,31 +441,37 @@ int main(int argc, char** argv) {
 					}
 				}
 			}
+			// The pixel is not on the border of an adjacent block from top or bottom
 			else{
+				// The pixel is on the leftmost column 
 				if(j == 0){
 					sum += Z[i][j]*Z[i-1][j];
 					sum += Z[i][j]*Z[i-1][j+1];
 					sum += Z[i][j]*Z[i][j+1];
 					sum += Z[i][j]*Z[i+1][j];
 					sum += Z[i][j]*Z[i+1][j+1];
+					// If the block is not on the leftmost part of picture pixels from left border can be used
 					if(world_rank %n != 1){
 						sum += Z[i][j]*left[i-1];
 						sum += Z[i][j]*left[i];
 						sum += Z[i][j]*left[i+1];
 					}
 				}
+				// The pixel is on the rightmost column 
 				else if(j == N-1){
 					sum += Z[i][j]*Z[i][j-1];
 					sum += Z[i][j]*Z[i-1][j-1];
 					sum += Z[i][j]*Z[i-1][j];
 					sum += Z[i][j]*Z[i+1][j-1];
 					sum += Z[i][j]*Z[i+1][j];
+					// If the block is not on the rightmost part of picture pixels from right border can be used
 					if(world_rank %n != 0){
 						sum += Z[i][j]*right[i-1];
 						sum += Z[i][j]*right[i];
 						sum += Z[i][j]*right[i+1];
 					}
 				}
+				// The pixel is in the middle and has neighbors on its right and left
 				else{
 					sum += Z[i][j]*Z[i][j-1];
 					sum += Z[i][j]*Z[i-1][j-1];
@@ -418,11 +487,14 @@ int main(int argc, char** argv) {
 			alpha += -2 * beta * sum;
 			if(alpha > log((double)rand() / (double)RAND_MAX))
 				Z[i][j] *= -1;
+			// Sending possible changes to the adjacent processors if exists
 			if(world_size >2){
 				send2(Z,N,n,world_rank,world_size,i,j);
-				receive2(top,bottom,left,right,&topLeft,&topRight,&bottomLeft,&bottomRight,N,n,world_rank,world_size,i,j);
+				receive2(top,bottom,left,right,&topLeft,&topRight,&bottomLeft,&bottomRight,N,n,world_rank,world_size);
 			}
 		}
+		// Sending the back to the master processor
+		// Deallocating memory
 		for(int i=0;i<N/n;i++){
 			MPI_Send(Z[i], N/n, MPI_INT, 0, 0, MPI_COMM_WORLD);
 			free(X[i]);
