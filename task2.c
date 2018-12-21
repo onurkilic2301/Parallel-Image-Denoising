@@ -19,11 +19,11 @@ void send(int ** Z,int N,int n,int world_rank, int world_size){
 	//Send right column;
 	if(world_rank % n  != 0)
 		for(int i=0; i < N/n; i++)
-			MPI_Send(&Z[i][0], 1, MPI_INT, world_rank + 1, 2, MPI_COMM_WORLD);
+			MPI_Send(&Z[i][N/n-1], 1, MPI_INT, world_rank + 1, 2, MPI_COMM_WORLD);
 	//Send Left Column 
 	if(world_rank % n  != 1)
 		for(int i=0; i < N/n; i++)
-			MPI_Send(&Z[i][N/n-1], 1, MPI_INT, world_rank - 1, 3, MPI_COMM_WORLD);
+			MPI_Send(&Z[i][0], 1, MPI_INT, world_rank - 1, 3, MPI_COMM_WORLD);
 	//Send top left corner
 	if(world_rank % n  != 1 && world_rank - n > 0)
 		MPI_Send(&Z[0][0], 1, MPI_INT, world_rank -n - 1, 4, MPI_COMM_WORLD);
@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
 	pi = atof(argv[4]);
 	int n = (int)sqrt(world_size-1);
 	//Checking Input values
-	if(beta < 0 || beta > 1){
+	if(beta < 0 || beta > 1){
 		printf("Beta value should be between 0 and 1\n");
 		exit(1);
 	}
@@ -331,7 +331,7 @@ int main(int argc, char** argv) {
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i];
 							sum += Z[i][j]*left[i+1];
-							sum += topLeft;
+							sum += Z[i][j]*topLeft;
 						}
 
 					}
@@ -346,7 +346,7 @@ int main(int argc, char** argv) {
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i];
 							sum += Z[i][j]*right[i+1];
-							sum += topRight;
+							sum += Z[i][j]*topRight;
 						}
 					}
 					// The pixel is in the middle and has neighbors on its right and left
@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
 						if(world_rank %n != 1){
 							sum += Z[i][j]*left[i-1];
 							sum += Z[i][j]*left[i];
-							sum += bottomLeft;
+							sum += Z[i][j]*bottomLeft;
 						}
 					}
 					// The pixel is on the rightmost column 
@@ -425,7 +425,7 @@ int main(int argc, char** argv) {
 						if(world_rank %n != 0){
 							sum += Z[i][j]*right[i-1];
 							sum += Z[i][j]*right[i];
-							sum += bottomRight;
+							sum += Z[i][j]*bottomRight;
 						}
 					}
 					// The pixel is in the middle and has neighbors on its right and left
@@ -492,6 +492,7 @@ int main(int argc, char** argv) {
 				send2(Z,N,n,world_rank,world_size,i,j);
 				receive2(top,bottom,left,right,&topLeft,&topRight,&bottomLeft,&bottomRight,N,n,world_rank,world_size);
 			}
+
 		}
 		// Sending the back to the master processor
 		// Deallocating memory

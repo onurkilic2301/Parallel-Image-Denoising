@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
 	beta = atof(argv[3]);
 	pi = atof(argv[4]);
 	//Checking Input values
-	if(beta < 0 || beta > 1){
+	if(beta < 0 || beta > 1){
 		printf("Beta value should be between 0 and 1\n");
 		exit(1);
 	}
