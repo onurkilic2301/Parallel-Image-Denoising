@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
 						}
 					}
 					// The pixel is on the rightmost column 
-					else if(j == N-1){
+					else if(j == N/n-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
 						sum += Z[i][j]*Z[i+1][j];
@@ -336,7 +336,7 @@ int main(int argc, char** argv) {
 
 					}
 					// The pixel is on the rightmost column 
-					else if(j == N-1){
+					else if(j == N/n-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i+1][j-1];
 						sum += Z[i][j]*Z[i+1][j];
@@ -379,7 +379,7 @@ int main(int argc, char** argv) {
 						}
 					}
 					// The pixel is on the rightmost column 
-					else if(j == N-1){
+					else if(j == N/n-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
 						sum += Z[i][j]*Z[i-1][j];
@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
 						}
 					}
 					// The pixel is on the rightmost column 
-					else if(j == N-1){
+					else if(j == N/n-1){
 						sum += Z[i][j]*Z[i][j-1];
 						sum += Z[i][j]*Z[i-1][j-1];
 						sum += Z[i][j]*Z[i-1][j];
@@ -458,7 +458,7 @@ int main(int argc, char** argv) {
 					}
 				}
 				// The pixel is on the rightmost column 
-				else if(j == N-1){
+				else if(j == N/n-1){
 					sum += Z[i][j]*Z[i][j-1];
 					sum += Z[i][j]*Z[i-1][j-1];
 					sum += Z[i][j]*Z[i-1][j];
