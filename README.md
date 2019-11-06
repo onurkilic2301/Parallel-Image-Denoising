@@ -19,4 +19,6 @@ Parameters:<br />
   \<input-file>: Path to the text file including the matrix of the image of size 200x200 to be denoised by the program.<br />
   \<output-file>: Path to the text file to write the output of the program which is the denoised version of image.<br />
   \<beta-value>: β parameter from the Ising Model which is a number between 0 and 1. <pi-value>: π parameter from the Ising Model which is a number between 0 and 1.<br />
-  The program terminates itself after execution.
+  The program terminates itself after execution.<br />
+  
+  Check Report for more explanation.
