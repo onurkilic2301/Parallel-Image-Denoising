@@ -1,1 +1,1 @@
-# CmpE_300_Project
+# Parallel Image Denoising 

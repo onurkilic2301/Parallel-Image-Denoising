@@ -1,3 +1,11 @@
+/*
+Student Name: Onur KILIÇOĞLU
+Student Number: 2015400012
+Compile Status: Compiling
+Program Status: Working
+Notes: - 
+*/
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
